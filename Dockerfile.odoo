@@ -1,0 +1,12 @@
+FROM odoo:19.0
+
+USER root
+
+# Install Python dependencies required by shared and WooCommerce sync logic.
+COPY requirements.txt /tmp/requirements.txt
+RUN mkdir -p /usr/local/lib/python3.12/dist-packages \
+	&& python3 -m pip install --no-cache-dir --break-system-packages --ignore-installed \
+	   --target /usr/local/lib/python3.12/dist-packages \
+	   -r /tmp/requirements.txt
+
+USER odoo
