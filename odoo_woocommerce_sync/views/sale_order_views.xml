@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sale_order_quotation_onboarding_sync_js_class" model="ir.ui.view">
+        <field name="name">sale.order.quotation.onboarding.sync.js.class</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_quotation_tree_with_onboarding"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="attributes">
+                <attribute name="js_class">woo_sale_order_sync_list</attribute>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="odoo_woocommerce_sync.WooProductTemplateSyncListView" t-inherit="web.ListView" t-inherit-mode="primary" owl="1">
+        <xpath expr="//button[contains(@class, 'o_list_button_add')]" position="after">
+            <button type="button" class="btn btn-secondary o_list_button_sync_products" t-on-click="onClickSyncProducts">
+                <t t-esc="syncProductsButtonLabel"/>
+            </button>
+        </xpath>
+    </t>
+
+    <t t-name="odoo_woocommerce_sync.WooProductTemplateSyncKanbanView" t-inherit="web.KanbanView" t-inherit-mode="primary" owl="1">
+        <xpath expr="//button[contains(@class, 'o-kanban-button-new')]" position="after">
+            <button type="button" class="btn btn-secondary o_kanban_button_sync_products" t-on-click="onClickSyncProducts">
+                <t t-esc="syncProductsButtonLabel"/>
+            </button>
+        </xpath>
+    </t>
+</templates>

@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: odoo
       POSTGRES_PASSWORD: odoo
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -34,7 +34,9 @@ services:
     volumes:
       - odoo_data:/var/lib/odoo
       - ./odoo.conf:/etc/odoo/odoo.conf:ro
-      - ../Odoo addons/odoo_woocommerce_sync:/mnt/extra-addons/odoo_woocommerce_sync
+      - ./odoo_woocommerce_sync:/mnt/extra-addons/odoo_woocommerce_sync
+      - ./WooCommerce:/mnt/extra-addons/WooCommerce
+      - ./shared:/mnt/extra-addons/shared
     command: ["odoo", "-c", "/etc/odoo/odoo.conf"]
 
 volumes:

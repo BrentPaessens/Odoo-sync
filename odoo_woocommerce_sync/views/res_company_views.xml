@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- View for editing company platform add-on settings -->
+    <record id="view_company_woocommerce_form" model="ir.ui.view">
+        <field name="name">res.company.woocommerce.form</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <!-- Add Platform Add-ons tab after Finance tab -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Platform Add-ons" name="platform_addons">
+
+                    <group name="odoo_connection" string="Odoo Connection">
+                        <field name="odoo_url"/>
+                        <field name="odoo_db"/>
+                        <field name="odoo_username"/>
+                        <field name="odoo_password" password="True"/>
+                        <field name="odoo_api_key" password="True"/>
+                    </group>
+
+                    <group name="plugin_selection" string="Plugin Selection">
+                        <field name="woo_wordpress_plugin_enabled"/>
+                        <field name="shopify_plugin_enabled"/>
+                    </group>
+
+                    <!-- WOOCOMMERCE API CONNECTION -->
+                    <group name="api_connection" string="WooCommerce API Credentials" invisible="not woo_wordpress_plugin_enabled">
+                        <field name="woo_url"/>
+                        <field name="woo_consumer_key" password="True"/>
+                        <field name="woo_consumer_secret" password="True"/>
+                        <button name="action_test_woo_connection" type="object" string="Test Connection" class="btn-primary" invisible="not woo_wordpress_plugin_enabled"/>
+                    </group>
+
+                    <!-- SYNC SETTINGS & OPTIONS -->
+                    <group name="sync_settings" string="Sync Settings" invisible="not woo_wordpress_plugin_enabled">
+                        <field name="woo_sync_enabled"/>
+                        <field name="woo_sync_interval_mode" widget="radio" readonly="not woo_sync_enabled"/>
+                        <field name="woo_sync_interval" readonly="not woo_sync_enabled"/>
+                        <field name="woo_product_sync_interval" readonly="not woo_sync_enabled" invisible="woo_sync_interval_mode == 'shared'"/>
+                        <field name="woo_order_cron_status" readonly="True"/>
+                        <field name="woo_order_cron_nextcall" readonly="True"/>
+                        <field name="woo_product_cron_status" readonly="True"/>
+                        <field name="woo_product_cron_nextcall" readonly="True"/>
+                        <field name="woo_auto_confirm_paid_orders"/>
+                        <field name="woo_create_delivery_picking"/>
+                        <field name="woo_track_stock"/>
+                        <field name="woo_create_delivery_addresses"/>
+                    </group>
+
+                    <!-- SYNC ACTIONS -->
+                    <group name="sync_actions" string="Manual Sync" invisible="not woo_wordpress_plugin_enabled">
+                        <button name="action_sync_products" type="object" string="Sync Products Now" class="btn-info" readonly="woo_last_sync_status == 'syncing'"/>
+                        <button name="action_sync_orders" type="object" string="Sync Orders Now" class="btn-info" readonly="woo_last_sync_status == 'syncing'"/>
+                        <button name="action_stop_sync" type="object" string="Stop Sync" class="btn-danger" invisible="woo_last_sync_status != 'syncing'"/>
+                    </group>
+
+                    <!-- STATUS & LOGGING -->
+                    <group name="sync_status" string="Last Sync Status" invisible="not woo_wordpress_plugin_enabled">
+                        <field name="odoo_sync_progress_percent" widget="progressbar" readonly="True"/>
+                        <field name="odoo_sync_progress_phase" readonly="True"/>
+                        <field name="woo_last_sync_time" readonly="True"/>
+                        <field name="woo_last_sync_status" readonly="True"/>
+                        <field name="woo_last_error_message" colspan="2" readonly="True"/>
+                    </group>
+
+                </page>
+            </xpath>
+        </field>
+    </record>
+    
+</odoo>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="odoo_woocommerce_sync.WooSaleOrderSyncListView" t-inherit="web.ListView" t-inherit-mode="primary" owl="1">
+        <xpath expr="//button[contains(@class, 'o_list_button_add')]" position="after">
+            <button type="button" class="btn btn-secondary o_list_button_sync_orders" t-on-click="onClickSyncOrders">
+                <t t-esc="syncOrdersButtonLabel"/>
+            </button>
+        </xpath>
+    </t>
+</templates>
