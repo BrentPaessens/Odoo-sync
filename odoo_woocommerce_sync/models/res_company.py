@@ -918,7 +918,7 @@ class ResCompany(models.Model):
     def _build_sync_command(self, main_script, sync_flag):
         """Build command for product or order sync with explicit company context."""
         self.ensure_one()
-        command = [sys.executable or "python", str(main_script), sync_flag]
+        command = ["/opt/api-center/venv/bin/python", str(main_script), sync_flag]
         if sync_flag == "--products":
             command.extend(["--company", str(self.id)])
         elif sync_flag == "--orders":
