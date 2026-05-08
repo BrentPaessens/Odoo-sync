@@ -21,4 +21,7 @@ jobs:
             git pull origin main
             source venv/bin/activate
             pip install -r requirements.txt
-            sudo systemctl restart api-center
+            deactivate
+            sudo find /opt/api-center/odoo_woocommerce_sync -name "*.pyc" -delete
+            sudo -u odoo odoo --config /etc/odoo/odoo.conf -u odoo_woocommerce_sync --stop-after-init
+            sudo systemctl restart odoo
