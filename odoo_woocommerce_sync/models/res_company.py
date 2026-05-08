@@ -236,6 +236,12 @@ class ResCompany(models.Model):
         default=False,
         help="Reserveer interne voorraad bij het aanmaken van de leverbon."
     )
+
+    woo_use_stock_delivery_flow = fields.Boolean(
+        string="Stock & Delivery Flow",
+        default=False,
+        help="Enable stock reservation and automatic delivery picking for paid orders.",
+    )
     
     # ════════════════════════════════════════════════════════════════════════════
     # WOOCOMMERCE API CONNECTION
