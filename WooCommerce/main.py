@@ -730,6 +730,9 @@ def process_order(
                 
                 # ── AUTO-CONFIRM PAID ORDERS ────────────────────────────────────
                 auto_confirm = company_config.woo_auto_confirm_paid_orders if company_config else False
+
+                logger.info("DEBUG auto_confirm=%s, is_paid=%s", auto_confirm, woo_order.is_paid)
+
                 # If payment has been collected, automatically confirm as sales order
                 if woo_order.is_paid and auto_confirm:
                     try:
