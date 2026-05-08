@@ -915,12 +915,16 @@ class OdooController:
     # ORDER SYNC: ORDER STATUS CHANGES
     def confirm_order(self, order_id: int) -> None:
         """Bevestig de order --> status wordt 'sale'."""
-        if self._is_json2():
-            self._json2_call_method("sale.order", "action_confirm", ids=[order_id])
-        else:
-            self._call_kw("sale.order", "action_confirm", [[order_id]])
-        logger.info("sale.order id=%s bevestigd.", order_id)
-
+        try:
+            if self._is_json2():
+                self._json2_call_method("sale.order", "action_confirm", ids=[order_id])
+            else:
+                self._call_kw("sale.order", "action_confirm", [[order_id]])
+            logger.info("sale.order id=%s bevestigd.", order_id)
+        except Exception as exc:
+            logger.error("CONFIRM FOUT voor order id=%s: %s", order_id, exc)
+            raise
+        
     def keep_order_deliveries_unreserved(self, order_id: int) -> int:
         """
         Zet leveringen van een bevestigde order op 'beschikbaar'.
