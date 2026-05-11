@@ -925,6 +925,93 @@ class OdooController:
             logger.error("CONFIRM FOUT voor order id=%s: %s", order_id, exc)
             raise
         
+
+    # Annuleer leverbonnen die automatisch zijn aangemaakt
+    def cancel_delivery_pickings(self, order_id: int) -> None:
+        """Annuleer automatisch aangemaakte leverbonnen als Delivery Picking Flow uit staat."""
+        order_name = self.get_sale_order_number(order_id) or str(order_id)
+        domain = [["origin", "=ilike", order_name], ["picking_type_code", "=", "outgoing"]]
+
+        if self._is_json2():
+            pickings = self._json2_search_read(
+                "stock.picking", domain, ["id", "name", "state"], suppress_not_found=True
+            )
+            for picking in pickings:
+                if picking.get("state") not in ("done", "cancel"):
+                    self._json2_call_method("stock.picking", "action_cancel", ids=[picking["id"]])
+                    logger.info("Leverbon id=%s geannuleerd (Delivery Picking Flow uit)", picking["id"])
+        else:
+            pickings = self._call_kw(
+                "stock.picking", "search_read", [domain], {"fields": ["id", "name", "state"]}
+            )
+            for picking in pickings:
+                if picking.get("state") not in ("done", "cancel"):
+                    self._call_kw("stock.picking", "action_cancel", [[picking["id"]]])
+                    logger.info("Leverbon id=%s geannuleerd (Delivery Picking Flow uit)", picking["id"])
+
+    def reserve_delivery_picking(self, picking_id: int) -> None:
+        """Reserveer voorraad voor een leverbon → status wordt Waiting."""
+        try:
+            if self._is_json2():
+                self._json2_call_method("stock.picking", "action_assign", ids=[picking_id])
+            else:
+                self._call_kw("stock.picking", "action_assign", [[picking_id]])
+            logger.info("Voorraad gereserveerd voor leverbon id=%s", picking_id)
+        except Exception as exc:
+            logger.warning("Voorraadreservering mislukt voor picking id=%s: %s", picking_id, exc)
+
+    def create_delivery_picking(self, order_id: int, reserve_stock: bool = False) -> int | None:
+        """
+        Maak een leverbon aan voor een bevestigde order.
+        
+        Args:
+            order_id:      ID van de bevestigde order
+            reserve_stock: Als True, reserveer voorraad
+        
+        Returns:
+            picking_id of None bij fout
+        """
+        try:
+            # Odoo maakt automatisch pickings aan bij confirm — zoek ze op
+            order_name = self.get_sale_order_number(order_id) or str(order_id)
+            domain = [["origin", "=ilike", order_name], ["picking_type_code", "=", "outgoing"]]
+
+            if self._is_json2():
+                pickings = self._json2_search_read(
+                    "stock.picking", domain, ["id", "name", "state"], suppress_not_found=True
+                )
+            else:
+                pickings = self._call_kw(
+                    "stock.picking", "search_read", [domain], {"fields": ["id", "name", "state"]}
+                )
+
+            if not pickings:
+                logger.warning("Geen leverbon gevonden voor order %s na bevestiging.", order_name)
+                return None
+
+            picking_id = pickings[0]["id"]
+            picking_state = pickings[0].get("state", "")
+            logger.info("Leverbon id=%s gevonden (state=%s) voor order %s", picking_id, picking_state, order_name)
+
+            # Reserveer stock alleen als de checkbox aan staat
+            if reserve_stock and picking_state in ("confirmed", "waiting"):
+                try:
+                    if self._is_json2():
+                        self._json2_call_method("stock.picking", "action_assign", ids=[picking_id])
+                    else:
+                        self._call_kw("stock.picking", "action_assign", [[picking_id]])
+                    logger.info("Voorraad gereserveerd voor leverbon id=%s", picking_id)
+                except Exception as exc:
+                    logger.warning("Voorraadreservering mislukt voor picking id=%s: %s", picking_id, exc)
+            elif not reserve_stock:
+                logger.info("Leverbon id=%s aangemaakt zonder stockreservering (woo_track_stock=False)", picking_id)
+
+            return picking_id
+
+        except Exception as exc:
+            logger.error("Fout bij ophalen/verwerken leverbon voor order id=%s: %s", order_id, exc)
+            return None
+
     def keep_order_deliveries_unreserved(self, order_id: int) -> int:
         """
         Zet leveringen van een bevestigde order op 'beschikbaar'.
@@ -2661,56 +2748,3 @@ class OdooController:
         )
         
         return delivery_id
-
-
-def create_delivery_picking(self, order_id: int, reserve_stock: bool = False) -> int | None:
-    """
-    Maak een leverbon aan voor een bevestigde order.
-    
-    Args:
-        order_id:      ID van de bevestigde order
-        reserve_stock: Als True, reserveer voorraad
-    
-    Returns:
-        picking_id of None bij fout
-    """
-    try:
-        # Odoo maakt automatisch pickings aan bij confirm — zoek ze op
-        order_name = self.get_sale_order_number(order_id) or str(order_id)
-        domain = [["origin", "=ilike", order_name], ["picking_type_code", "=", "outgoing"]]
-
-        if self._is_json2():
-            pickings = self._json2_search_read(
-                "stock.picking", domain, ["id", "name", "state"], suppress_not_found=True
-            )
-        else:
-            pickings = self._call_kw(
-                "stock.picking", "search_read", [domain], {"fields": ["id", "name", "state"]}
-            )
-
-        if not pickings:
-            logger.warning("Geen leverbon gevonden voor order %s na bevestiging.", order_name)
-            return None
-
-        picking_id = pickings[0]["id"]
-        picking_state = pickings[0].get("state", "")
-        logger.info("Leverbon id=%s gevonden (state=%s) voor order %s", picking_id, picking_state, order_name)
-
-        # Reserveer stock alleen als de checkbox aan staat
-        if reserve_stock and picking_state in ("confirmed", "waiting"):
-            try:
-                if self._is_json2():
-                    self._json2_call_method("stock.picking", "action_assign", ids=[picking_id])
-                else:
-                    self._call_kw("stock.picking", "action_assign", [[picking_id]])
-                logger.info("Voorraad gereserveerd voor leverbon id=%s", picking_id)
-            except Exception as exc:
-                logger.warning("Voorraadreservering mislukt voor picking id=%s: %s", picking_id, exc)
-        elif not reserve_stock:
-            logger.info("Leverbon id=%s aangemaakt zonder stockreservering (woo_track_stock=False)", picking_id)
-
-        return picking_id
-
-    except Exception as exc:
-        logger.error("Fout bij ophalen/verwerken leverbon voor order id=%s: %s", order_id, exc)
-        return None
