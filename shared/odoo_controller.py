@@ -915,15 +915,18 @@ class OdooController:
     # ORDER SYNC: ORDER STATUS CHANGES
     def confirm_order(self, order_id: int) -> None:
         """Bevestig de order --> status wordt 'sale'."""
-        try:
-            if self._is_json2():
+        if self._is_json2():
+            if not create_picking:
+                self._json2_call_method("sale.order", "action_confirm", ids=[order_id], kwargs={"context": {"no_procurement": True}})
+            else:
                 self._json2_call_method("sale.order", "action_confirm", ids=[order_id])
+        else:
+            if not create_picking:
+                self._call_kw("sale.order", "action_confirm", [[order_id]], {"context": {"no_procurement": True}},)
             else:
                 self._call_kw("sale.order", "action_confirm", [[order_id]])
-            logger.info("sale.order id=%s bevestigd.", order_id)
-        except Exception as exc:
-            logger.error("CONFIRM FOUT voor order id=%s: %s", order_id, exc)
-            raise
+        logger.info("Order id=%s bevestigd.", order_id)
+
         
 
     # Annuleer leverbonnen die automatisch zijn aangemaakt

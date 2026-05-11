@@ -736,7 +736,7 @@ def process_order(
                 # If payment has been collected, automatically confirm as sales order
                 if woo_order.is_paid and auto_confirm:
                     try:
-                        odoo.confirm_order(order_id)
+                        odoo.confirm_order(order_id, create_picking=create_picking)
                         woo_order.sync_metadata.is_sales_order = True
                         logger.info(
                             "   Order #%s → Paid order auto-confirmed as sales.order (status=sale)",
