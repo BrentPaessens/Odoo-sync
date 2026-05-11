@@ -368,6 +368,9 @@ class CompanyWooSyncConfig(BaseModel):
     woo_auto_confirm_unpaid_orders: bool = False              # Also confirm unpaid orders
     woo_use_stock_delivery_flow: bool = False                 # Enable stock/leverbon picking flow for paid orders
     woo_create_delivery_addresses: bool = False               # Create separate delivery addresses in Odoo when shipping differs from billing
+    woo_create_delivery_picking: bool = False                 # Maak leverbon aan voor verkoopsorders
+    woo_track_stock: bool = False                             # Reserveer voorraad bij leverbon
+
 
     # WooCommerce connection (per company)
     woo_url: str | None = None                                # Company-specific WooCommerce URL (if different)
