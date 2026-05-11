@@ -749,19 +749,22 @@ def process_order(
 
                         if create_picking:
                             try:
-                                picking_id = odoo.create_delivery_picking(order_id, reserve_stock=track_stock)
-                                if picking_id:
+                                picking_id = odoo.create_delivery_picking(order_id, reserve_stock=False)
+                                if picking_id and track_stock:
+                                    odoo.reserve_delivery_picking(picking_id)
                                     logger.info(
                                         "Order #%s → leverbon id=%s aangemaakt (stock_reservering=%s)",
                                         woo_order.number, picking_id, track_stock,
                                     )
                                 else:
+                                    odoo.cancel_delivery_pickings(order_id)
                                     logger.warning("Order #%s → leverbon aanmaken mislukt (geen id)", woo_order.number)
                             except Exception as picking_error:
                                 logger.warning("Order #%s → leverbon fout: %s", woo_order.number, picking_error)
                         else:
                             logger.info("Order #%s → geen leverbon (Delivery Picking Flow staat uit)", woo_order.number)
-                                                
+                            odoo.cancel_delivery_pickings(order_id)
+
                         # Try to update WooCommerce with sales order confirmation info
                         try:
                             woo.update_order_meta(
