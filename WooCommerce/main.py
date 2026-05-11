@@ -735,7 +735,6 @@ def process_order(
 
                 # If payment has been collected, automatically confirm as sales order
                 if woo_order.is_paid and auto_confirm:
-                    create_picking = company_config.woo_create_delivery_picking if company_config else False
                     track_stock = company_config.woo_track_stock if company_config else False
                     try:
                         odoo.confirm_order(order_id)
@@ -746,17 +745,13 @@ def process_order(
                         )
 
                         # -- Leverbon aanmaken ------
-                        if not create_picking:
-                            # Delivery Picking Flow uit → zet automatische leverbon op draft
-                            odoo.set_delivery_pickings_to_draft(order_id)
-                            logger.info("Order #%s → leverbon op draft gezet (Delivery Picking Flow uit)", woo_order.number)
-                        elif create_picking and track_stock:
-                            # Delivery Picking Flow aan + Track Stock aan → reserveer voorraad
-                            odoo.reserve_order_pickings(order_id)
-                            logger.info("Order #%s → voorraad gereserveerd (Track Stock aan)", woo_order.number)
+                        if not track_stock:
+                            # Track Stock uit → zet leverbon op Waiting (geen voorraadreservering)
+                            odoo.set_delivery_pickings_to_waiting(order_id)
+                            logger.info("Order #%s → leverbon op Waiting (Track Stock uit)", woo_order.number)
                         else:
-                            # Delivery Picking Flow aan, Track Stock uit → leverbon blijft op draft
-                            logger.info("Order #%s → leverbon blijft op draft (Track Stock uit)", woo_order.number)
+                            # Track Stock aan → leverbon blijft op Ready (voorraad gereserveerd)
+                            logger.info("Order #%s → leverbon op Ready (Track Stock aan)", woo_order.number)
 
 
                         # Try to update WooCommerce with sales order confirmation info

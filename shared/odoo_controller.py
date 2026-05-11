@@ -1356,6 +1356,37 @@ class OdooController:
             )
         return True
 
+    
+    def set_delivery_pickings_to_waiting(self, order_id: int) -> None:
+        """Zet automatisch aangemaakte leverbonnen op Waiting door voorraad vrij te geven."""
+        order_name = self.get_sale_order_number(order_id) or str(order_id)
+        domain = [["origin", "=ilike", order_name], ["picking_type_code", "=", "outgoing"]]
+
+        if self._is_json2():
+            pickings = self._json2_search_read(
+                "stock.picking", domain, ["id", "name", "state"], suppress_not_found=True
+            )
+            for picking in pickings:
+                if picking.get("state") == "assigned":
+                    try:
+                        self._json2_call_method("stock.picking", "do_unreserve", ids=[picking["id"]])
+                        logger.info("Leverbon id=%s op Waiting gezet (voorraad vrijgegeven)", picking["id"])
+                    except Exception as exc:
+                        logger.warning("Kon leverbon id=%s niet op Waiting zetten: %s", picking["id"], exc)
+        else:
+            pickings = self._call_kw(
+                "stock.picking", "search_read", [domain], {"fields": ["id", "name", "state"]}
+            )
+            for picking in pickings:
+                if picking.get("state") == "assigned":
+                    try:
+                        self._call_kw("stock.picking", "do_unreserve", [[picking["id"]]])
+                        logger.info("Leverbon id=%s op Waiting gezet (voorraad vrijgegeven)", picking["id"])
+                    except Exception as exc:
+                        logger.warning("Kon leverbon id=%s niet op Waiting zetten: %s", picking["id"], exc)
+
+
+
     def _get_order_lines_with_fallback(self, order_name: str, line_ids: list[int]) -> list[dict]:
         """
         Robuuste ophalen van orderregels-records met een fallbackstrategie.
