@@ -1361,22 +1361,46 @@ class OdooController:
         """Zet automatisch aangemaakte leverbonnen op Waiting door voorraad vrij te geven."""
         order_name = self.get_sale_order_number(order_id) or str(order_id)
         domain = [["origin", "=ilike", order_name], ["picking_type_code", "=", "outgoing"]]
+        logger.debug("set_delivery_pickings_to_waiting start: order_id=%s, order_name=%s", order_id, order_name)
 
         if self._is_json2():
-            pickings = self._json2_search_read(
-                "stock.picking", domain, ["id", "name", "state"], suppress_not_found=True
-            )
+            try:
+                pickings = self._json2_search_read(
+                    "stock.picking", domain, ["id", "name", "state"], suppress_not_found=True
+                )
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
+                    logger.info(
+                        "Stock module niet beschikbaar in Odoo (model stock.picking ontbreekt). Skipping set_delivery_pickings_to_waiting."
+                    )
+                    return
+                raise
+
+            logger.debug("Found %s pickings for order %s", len(pickings), order_name)
             for picking in pickings:
                 if picking.get("state") == "assigned":
                     try:
                         self._json2_call_method("stock.picking", "do_unreserve", ids=[picking["id"]])
                         logger.info("Leverbon id=%s op Waiting gezet (voorraad vrijgegeven)", picking["id"])
+                    except httpx.HTTPStatusError as exc:
+                        logger.warning(
+                            "Kon leverbon id=%s niet op Waiting zetten (HTTP %s): %s",
+                            picking["id"],
+                            exc.response.status_code if exc.response is not None else "?",
+                            exc,
+                        )
                     except Exception as exc:
                         logger.warning("Kon leverbon id=%s niet op Waiting zetten: %s", picking["id"], exc)
         else:
-            pickings = self._call_kw(
-                "stock.picking", "search_read", [domain], {"fields": ["id", "name", "state"]}
-            )
+            try:
+                pickings = self._call_kw(
+                    "stock.picking", "search_read", [domain], {"fields": ["id", "name", "state"]}
+                )
+            except Exception as exc:
+                logger.warning("Kon stock.picking search_read uitvoeren via XML-RPC: %s", exc)
+                return
+
+            logger.debug("Found %s pickings (xmlrpc) for order %s", len(pickings), order_name)
             for picking in pickings:
                 if picking.get("state") == "assigned":
                     try:
@@ -1384,6 +1408,8 @@ class OdooController:
                         logger.info("Leverbon id=%s op Waiting gezet (voorraad vrijgegeven)", picking["id"])
                     except Exception as exc:
                         logger.warning("Kon leverbon id=%s niet op Waiting zetten: %s", picking["id"], exc)
+
+        logger.debug("set_delivery_pickings_to_waiting finished: order_id=%s", order_id)
 
 
 
