@@ -735,6 +735,8 @@ def process_order(
 
                 # If payment has been collected, automatically confirm as sales order
                 if woo_order.is_paid and auto_confirm:
+                    create_picking = company_config.woo_create_delivery_picking if company_config else False
+                    track_stock = company_config.woo_track_stock if company_config else False
                     try:
                         odoo.confirm_order(order_id, create_picking=create_picking)
                         woo_order.sync_metadata.is_sales_order = True
