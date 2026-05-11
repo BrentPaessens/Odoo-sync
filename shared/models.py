@@ -65,7 +65,7 @@ class OdooProduct(BaseModel):
     sale_price: float | None = None         # Kortingprijs voor WooCommerce (indien geconfigureerd)
     discount_percent: float | None = None   # Percentage korting als alternatief voor vaste sale_price
     description_sale: str | None = None    # Verkoopbeschrijving
-    qty_available: int = 0                     # Voorraad
+    qty_available: int                     # Voorraad
     categ_id: list[Any] | None = None      # [id, "Categorienaam"]
     product_brand_id: list[Any] | None = None  # [id, "Merknaam"]
     product_tmpl_id: list[Any] | int | None = None  # Variant → template mapping voor pricelistregels
@@ -153,7 +153,7 @@ class WooProductStock(BaseModel):
     id: int
     name: str
     sku: str = ""
-    stock_quantity: int | None = None
+    stock_quantity: int
 
 
 class WooOrder(BaseModel):
