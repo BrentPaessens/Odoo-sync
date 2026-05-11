@@ -738,34 +738,26 @@ def process_order(
                     create_picking = company_config.woo_create_delivery_picking if company_config else False
                     track_stock = company_config.woo_track_stock if company_config else False
                     try:
-                        odoo.confirm_order(order_id, create_picking=create_picking)
+                        odoo.confirm_order(order_id)
                         woo_order.sync_metadata.is_sales_order = True
                         logger.info(
                             "   Order #%s → Paid order auto-confirmed as sales.order (status=sale)",
                             woo_order.number,
                         )
 
-                        # -- Leverbon aanamaken ------
-                        create_picking = company_config.woo_create_delivery_picking if company_config else False
-                        track_stock    = company_config.woo_track_stock if company_config else False
-
-                        if create_picking:
-                            try:
-                                picking_id = odoo.create_delivery_picking(order_id, reserve_stock=False)
-                                if picking_id and track_stock:
-                                    odoo.reserve_delivery_picking(picking_id)
-                                    logger.info(
-                                        "Order #%s → leverbon id=%s aangemaakt (stock_reservering=%s)",
-                                        woo_order.number, picking_id, track_stock,
-                                    )
-                                else:
-                                    odoo.cancel_delivery_pickings(order_id)
-                                    logger.warning("Order #%s → leverbon aanmaken mislukt (geen id)", woo_order.number)
-                            except Exception as picking_error:
-                                logger.warning("Order #%s → leverbon fout: %s", woo_order.number, picking_error)
+                        # -- Leverbon aanmaken ------
+                        if not create_picking:
+                            # Delivery Picking Flow uit → zet automatische leverbon op draft
+                            odoo.set_delivery_pickings_to_draft(order_id)
+                            logger.info("Order #%s → leverbon op draft gezet (Delivery Picking Flow uit)", woo_order.number)
+                        elif create_picking and track_stock:
+                            # Delivery Picking Flow aan + Track Stock aan → reserveer voorraad
+                            odoo.reserve_order_pickings(order_id)
+                            logger.info("Order #%s → voorraad gereserveerd (Track Stock aan)", woo_order.number)
                         else:
-                            logger.info("Order #%s → geen leverbon (Delivery Picking Flow staat uit)", woo_order.number)
-                            odoo.cancel_delivery_pickings(order_id)
+                            # Delivery Picking Flow aan, Track Stock uit → leverbon blijft op draft
+                            logger.info("Order #%s → leverbon blijft op draft (Track Stock uit)", woo_order.number)
+
 
                         # Try to update WooCommerce with sales order confirmation info
                         try:
