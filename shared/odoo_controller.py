@@ -2364,7 +2364,6 @@ class OdooController:
             "woo_product_sync_interval",
             "woo_auto_confirm_paid_orders",
             "woo_auto_confirm_unpaid_orders",
-            "woo_create_delivery_picking",
             "woo_track_stock",
             "woo_create_delivery_addresses",
             "woo_url",
