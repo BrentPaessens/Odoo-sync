@@ -924,437 +924,437 @@ class OdooController:
         
 
     # Annuleer leverbonnen die automatisch zijn aangemaakt
-    def cancel_delivery_pickings(self, order_id: int) -> None:
-        """Annuleer automatisch aangemaakte leverbonnen als Delivery Picking Flow uit staat."""
-        order_name = self.get_sale_order_number(order_id) or str(order_id)
-        domain = [["origin", "=ilike", order_name], ["picking_type_code", "=", "outgoing"]]
+    # def cancel_delivery_pickings(self, order_id: int) -> None:
+    #     """Annuleer automatisch aangemaakte leverbonnen als Delivery Picking Flow uit staat."""
+    #     order_name = self.get_sale_order_number(order_id) or str(order_id)
+    #     domain = [["origin", "=ilike", order_name], ["picking_type_code", "=", "outgoing"]]
 
-        if self._is_json2():
-            pickings = self._json2_search_read(
-                "stock.picking", domain, ["id", "name", "state"], suppress_not_found=True
-            )
-            for picking in pickings:
-                if picking.get("state") not in ("done", "cancel"):
-                    self._json2_call_method("stock.picking", "action_cancel", ids=[picking["id"]])
-                    logger.info("Leverbon id=%s geannuleerd (Delivery Picking Flow uit)", picking["id"])
-        else:
-            pickings = self._call_kw(
-                "stock.picking", "search_read", [domain], {"fields": ["id", "name", "state"]}
-            )
-            for picking in pickings:
-                if picking.get("state") not in ("done", "cancel"):
-                    self._call_kw("stock.picking", "action_cancel", [[picking["id"]]])
-                    logger.info("Leverbon id=%s geannuleerd (Delivery Picking Flow uit)", picking["id"])
+    #     if self._is_json2():
+    #         pickings = self._json2_search_read(
+    #             "stock.picking", domain, ["id", "name", "state"], suppress_not_found=True
+    #         )
+    #         for picking in pickings:
+    #             if picking.get("state") not in ("done", "cancel"):
+    #                 self._json2_call_method("stock.picking", "action_cancel", ids=[picking["id"]])
+    #                 logger.info("Leverbon id=%s geannuleerd (Delivery Picking Flow uit)", picking["id"])
+    #     else:
+    #         pickings = self._call_kw(
+    #             "stock.picking", "search_read", [domain], {"fields": ["id", "name", "state"]}
+    #         )
+    #         for picking in pickings:
+    #             if picking.get("state") not in ("done", "cancel"):
+    #                 self._call_kw("stock.picking", "action_cancel", [[picking["id"]]])
+    #                 logger.info("Leverbon id=%s geannuleerd (Delivery Picking Flow uit)", picking["id"])
 
-    def reserve_delivery_picking(self, picking_id: int) -> None:
-        """Reserveer voorraad voor een leverbon → status wordt Waiting."""
-        try:
-            if self._is_json2():
-                self._json2_call_method("stock.picking", "action_assign", ids=[picking_id])
-            else:
-                self._call_kw("stock.picking", "action_assign", [[picking_id]])
-            logger.info("Voorraad gereserveerd voor leverbon id=%s", picking_id)
-        except Exception as exc:
-            logger.warning("Voorraadreservering mislukt voor picking id=%s: %s", picking_id, exc)
+    # def reserve_delivery_picking(self, picking_id: int) -> None:
+    #     """Reserveer voorraad voor een leverbon → status wordt Waiting."""
+    #     try:
+    #         if self._is_json2():
+    #             self._json2_call_method("stock.picking", "action_assign", ids=[picking_id])
+    #         else:
+    #             self._call_kw("stock.picking", "action_assign", [[picking_id]])
+    #         logger.info("Voorraad gereserveerd voor leverbon id=%s", picking_id)
+    #     except Exception as exc:
+    #         logger.warning("Voorraadreservering mislukt voor picking id=%s: %s", picking_id, exc)
 
-    def create_delivery_picking(self, order_id: int, reserve_stock: bool = False) -> int | None:
-        """
-        Maak een leverbon aan voor een bevestigde order.
+    # def create_delivery_picking(self, order_id: int, reserve_stock: bool = False) -> int | None:
+    #     """
+    #     Maak een leverbon aan voor een bevestigde order.
         
-        Args:
-            order_id:      ID van de bevestigde order
-            reserve_stock: Als True, reserveer voorraad
+    #     Args:
+    #         order_id:      ID van de bevestigde order
+    #         reserve_stock: Als True, reserveer voorraad
         
-        Returns:
-            picking_id of None bij fout
-        """
-        try:
-            # Odoo maakt automatisch pickings aan bij confirm — zoek ze op
-            order_name = self.get_sale_order_number(order_id) or str(order_id)
-            domain = [["origin", "=ilike", order_name], ["picking_type_code", "=", "outgoing"]]
+    #     Returns:
+    #         picking_id of None bij fout
+    #     """
+    #     try:
+    #         # Odoo maakt automatisch pickings aan bij confirm — zoek ze op
+    #         order_name = self.get_sale_order_number(order_id) or str(order_id)
+    #         domain = [["origin", "=ilike", order_name], ["picking_type_code", "=", "outgoing"]]
 
-            if self._is_json2():
-                pickings = self._json2_search_read(
-                    "stock.picking", domain, ["id", "name", "state"], suppress_not_found=True
-                )
-            else:
-                pickings = self._call_kw(
-                    "stock.picking", "search_read", [domain], {"fields": ["id", "name", "state"]}
-                )
+    #         if self._is_json2():
+    #             pickings = self._json2_search_read(
+    #                 "stock.picking", domain, ["id", "name", "state"], suppress_not_found=True
+    #             )
+    #         else:
+    #             pickings = self._call_kw(
+    #                 "stock.picking", "search_read", [domain], {"fields": ["id", "name", "state"]}
+    #             )
 
-            if not pickings:
-                logger.warning("Geen leverbon gevonden voor order %s na bevestiging.", order_name)
-                return None
+    #         if not pickings:
+    #             logger.warning("Geen leverbon gevonden voor order %s na bevestiging.", order_name)
+    #             return None
 
-            picking_id = pickings[0]["id"]
-            picking_state = pickings[0].get("state", "")
-            logger.info("Leverbon id=%s gevonden (state=%s) voor order %s", picking_id, picking_state, order_name)
+    #         picking_id = pickings[0]["id"]
+    #         picking_state = pickings[0].get("state", "")
+    #         logger.info("Leverbon id=%s gevonden (state=%s) voor order %s", picking_id, picking_state, order_name)
 
-            # Reserveer stock alleen als de checkbox aan staat
-            if reserve_stock and picking_state in ("confirmed", "waiting"):
-                try:
-                    if self._is_json2():
-                        self._json2_call_method("stock.picking", "action_assign", ids=[picking_id])
-                    else:
-                        self._call_kw("stock.picking", "action_assign", [[picking_id]])
-                    logger.info("Voorraad gereserveerd voor leverbon id=%s", picking_id)
-                except Exception as exc:
-                    logger.warning("Voorraadreservering mislukt voor picking id=%s: %s", picking_id, exc)
-            elif not reserve_stock:
-                logger.info("Leverbon id=%s aangemaakt zonder stockreservering (woo_track_stock=False)", picking_id)
+    #         # Reserveer stock alleen als de checkbox aan staat
+    #         if reserve_stock and picking_state in ("confirmed", "waiting"):
+    #             try:
+    #                 if self._is_json2():
+    #                     self._json2_call_method("stock.picking", "action_assign", ids=[picking_id])
+    #                 else:
+    #                     self._call_kw("stock.picking", "action_assign", [[picking_id]])
+    #                 logger.info("Voorraad gereserveerd voor leverbon id=%s", picking_id)
+    #             except Exception as exc:
+    #                 logger.warning("Voorraadreservering mislukt voor picking id=%s: %s", picking_id, exc)
+    #         elif not reserve_stock:
+    #             logger.info("Leverbon id=%s aangemaakt zonder stockreservering (woo_track_stock=False)", picking_id)
 
-            return picking_id
+    #         return picking_id
 
-        except Exception as exc:
-            logger.error("Fout bij ophalen/verwerken leverbon voor order id=%s: %s", order_id, exc)
-            return None
+    #     except Exception as exc:
+    #         logger.error("Fout bij ophalen/verwerken leverbon voor order id=%s: %s", order_id, exc)
+    #         return None
 
-    def keep_order_deliveries_unreserved(self, order_id: int) -> int:
-        """
-        Zet leveringen van een bevestigde order op 'beschikbaar'.
-        Dit behoudt de order status op 'sale', maar haalt reservering weg
-        zodat magazijn de leverbon eerst kan controleren.
-        """
-        order_name = self.get_sale_order_number(order_id) or str(order_id)
-        domain = [["origin", "=ilike", order_name], ["state", "=", "assigned"]]
-        unreserved = 0
+    # def keep_order_deliveries_unreserved(self, order_id: int) -> int:
+    #     """
+    #     Zet leveringen van een bevestigde order op 'beschikbaar'.
+    #     Dit behoudt de order status op 'sale', maar haalt reservering weg
+    #     zodat magazijn de leverbon eerst kan controleren.
+    #     """
+    #     order_name = self.get_sale_order_number(order_id) or str(order_id)
+    #     domain = [["origin", "=ilike", order_name], ["state", "=", "assigned"]]
+    #     unreserved = 0
 
-        unreserve_methods = ("do_unreserve", "action_unreserve")
+    #     unreserve_methods = ("do_unreserve", "action_unreserve")
 
-        if self._is_json2():
-            try:
-                pickings = self._json2_search_read(
-                    "stock.picking",
-                    domain,
-                    ["id", "name", "state"],
-                    suppress_not_found=True,
-                )
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 404:
-                    logger.info(
-                        "Stock module niet beschikbaar in Odoo (model stock.picking ontbreekt). "
-                        "Stap 'unreserve deliveries' wordt overgeslagen."
-                    )
-                    return 0
-                raise
-            for picking in pickings:
-                picking_id = picking["id"]
-                method_ok = False
-                for method_name in unreserve_methods:
-                    try:
-                        self._json2_call_method("stock.picking", method_name, ids=[picking_id])
-                        method_ok = True
-                        break
-                    except httpx.HTTPStatusError as exc:
-                        if exc.response.status_code == 404:
-                            continue
-                        raise
-                if method_ok:
-                    unreserved += 1
-                    logger.info(
-                        "Leverbon %s (id=%s) op unreserved gezet na orderbevestiging.",
-                        picking.get("name", "?"),
-                        picking_id,
-                    )
-                else:
-                    logger.warning(
-                        "Geen ondersteunde unreserve-methode gevonden voor leverbon %s (id=%s).",
-                        picking.get("name", "?"),
-                        picking_id,
-                    )
-        else:
-            pickings = self._call_kw(
-                "stock.picking",
-                "search_read",
-                [domain],
-                {"fields": ["id", "name", "state"]},
-            )
-            for picking in pickings:
-                picking_id = picking["id"]
-                method_ok = False
-                for method_name in unreserve_methods:
-                    try:
-                        self._call_kw("stock.picking", method_name, [[picking_id]])
-                        method_ok = True
-                        break
-                    except Exception:
-                        continue
-                if method_ok:
-                    unreserved += 1
-                    logger.info(
-                        "Leverbon %s (id=%s) op unreserved gezet na orderbevestiging.",
-                        picking.get("name", "?"),
-                        picking_id,
-                    )
-                else:
-                    logger.warning(
-                        "Geen ondersteunde unreserve-methode gevonden voor leverbon %s (id=%s).",
-                        picking.get("name", "?"),
-                        picking_id,
-                    )
+    #     if self._is_json2():
+    #         try:
+    #             pickings = self._json2_search_read(
+    #                 "stock.picking",
+    #                 domain,
+    #                 ["id", "name", "state"],
+    #                 suppress_not_found=True,
+    #             )
+    #         except httpx.HTTPStatusError as exc:
+    #             if exc.response.status_code == 404:
+    #                 logger.info(
+    #                     "Stock module niet beschikbaar in Odoo (model stock.picking ontbreekt). "
+    #                     "Stap 'unreserve deliveries' wordt overgeslagen."
+    #                 )
+    #                 return 0
+    #             raise
+    #         for picking in pickings:
+    #             picking_id = picking["id"]
+    #             method_ok = False
+    #             for method_name in unreserve_methods:
+    #                 try:
+    #                     self._json2_call_method("stock.picking", method_name, ids=[picking_id])
+    #                     method_ok = True
+    #                     break
+    #                 except httpx.HTTPStatusError as exc:
+    #                     if exc.response.status_code == 404:
+    #                         continue
+    #                     raise
+    #             if method_ok:
+    #                 unreserved += 1
+    #                 logger.info(
+    #                     "Leverbon %s (id=%s) op unreserved gezet na orderbevestiging.",
+    #                     picking.get("name", "?"),
+    #                     picking_id,
+    #                 )
+    #             else:
+    #                 logger.warning(
+    #                     "Geen ondersteunde unreserve-methode gevonden voor leverbon %s (id=%s).",
+    #                     picking.get("name", "?"),
+    #                     picking_id,
+    #                 )
+    #     else:
+    #         pickings = self._call_kw(
+    #             "stock.picking",
+    #             "search_read",
+    #             [domain],
+    #             {"fields": ["id", "name", "state"]},
+    #         )
+    #         for picking in pickings:
+    #             picking_id = picking["id"]
+    #             method_ok = False
+    #             for method_name in unreserve_methods:
+    #                 try:
+    #                     self._call_kw("stock.picking", method_name, [[picking_id]])
+    #                     method_ok = True
+    #                     break
+    #                 except Exception:
+    #                     continue
+    #             if method_ok:
+    #                 unreserved += 1
+    #                 logger.info(
+    #                     "Leverbon %s (id=%s) op unreserved gezet na orderbevestiging.",
+    #                     picking.get("name", "?"),
+    #                     picking_id,
+    #                 )
+    #             else:
+    #                 logger.warning(
+    #                     "Geen ondersteunde unreserve-methode gevonden voor leverbon %s (id=%s).",
+    #                     picking.get("name", "?"),
+    #                     picking_id,
+    #                 )
 
-        if unreserved == 0:
-            logger.debug(
-                "Geen assigned leverbons gevonden om te unreserven voor sale.order id=%s.",
-                order_id,
-            )
+    #     if unreserved == 0:
+    #         logger.debug(
+    #             "Geen assigned leverbons gevonden om te unreserven voor sale.order id=%s.",
+    #             order_id,
+    #         )
 
-        return unreserved
+    #     return unreserved
 
-    def reset_order_deliveries_to_draft(self, order_id: int) -> int:
-        """
-        Reset leveringen van een bevestigde order naar draft.
+    # def reset_order_deliveries_to_draft(self, order_id: int) -> int:
+    #     """
+    #     Reset leveringen van een bevestigde order naar draft.
 
-        Voor betaalde orders willen we wel leverbonnen kunnen aanmaken, maar niet
-        automatisch reserveren/afhandelen. Daarom worden de gekoppelde stock.moves
-        teruggezet naar draft nadat de reservering is vrijgegeven.
-        """
-        order_name = self.get_sale_order_number(order_id) or str(order_id)
-        domain = [["origin", "=ilike", order_name], ["state", "in", ["confirmed", "waiting", "assigned", "partially_available"]]]
-        reset_count = 0
+    #     Voor betaalde orders willen we wel leverbonnen kunnen aanmaken, maar niet
+    #     automatisch reserveren/afhandelen. Daarom worden de gekoppelde stock.moves
+    #     teruggezet naar draft nadat de reservering is vrijgegeven.
+    #     """
+    #     order_name = self.get_sale_order_number(order_id) or str(order_id)
+    #     domain = [["origin", "=ilike", order_name], ["state", "in", ["confirmed", "waiting", "assigned", "partially_available"]]]
+    #     reset_count = 0
 
-        if self._is_json2():
-            try:
-                pickings = self._json2_search_read(
-                    "stock.picking",
-                    domain,
-                    ["id", "name", "state"],
-                    suppress_not_found=True,
-                )
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 404:
-                    logger.info(
-                        "Stock module niet beschikbaar in Odoo (model stock.picking ontbreekt). "
-                        "Stap 'reset deliveries to draft' wordt overgeslagen."
-                    )
-                    return 0
-                raise
+    #     if self._is_json2():
+    #         try:
+    #             pickings = self._json2_search_read(
+    #                 "stock.picking",
+    #                 domain,
+    #                 ["id", "name", "state"],
+    #                 suppress_not_found=True,
+    #             )
+    #         except httpx.HTTPStatusError as exc:
+    #             if exc.response.status_code == 404:
+    #                 logger.info(
+    #                     "Stock module niet beschikbaar in Odoo (model stock.picking ontbreekt). "
+    #                     "Stap 'reset deliveries to draft' wordt overgeslagen."
+    #                 )
+    #                 return 0
+    #             raise
 
-            if not pickings:
-                # TODO: PHASE 8 fallback delivery creation temporarily disabled (out-of-scope)
-                # created = self._create_draft_delivery_for_order(order_id, order_name)
-                # if created:
-                #     logger.info(
-                #         "Geen leverbon gevonden voor order %s. Draft leverbon automatisch aangemaakt.",
-                #         order_name,
-                #     )
-                #     return 1
-                logger.info(
-                    "Geen leverbon gevonden voor order %s. Fallback leverbon creatie uitgeschakeld (out-of-scope).",
-                    order_name,
-                )
-                return 0
+    #         if not pickings:
+    #             # TODO: PHASE 8 fallback delivery creation temporarily disabled (out-of-scope)
+    #             # created = self._create_draft_delivery_for_order(order_id, order_name)
+    #             # if created:
+    #             #     logger.info(
+    #             #         "Geen leverbon gevonden voor order %s. Draft leverbon automatisch aangemaakt.",
+    #             #         order_name,
+    #             #     )
+    #             #     return 1
+    #             logger.info(
+    #                 "Geen leverbon gevonden voor order %s. Fallback leverbon creatie uitgeschakeld (out-of-scope).",
+    #                 order_name,
+    #             )
+    #             return 0
 
-            for picking in pickings:
-                picking_id = picking["id"]
-                try:
-                    moves = self._json2_search_read(
-                        "stock.move",
-                        [["picking_id", "=", picking_id], ["state", "!=", "draft"]],
-                        ["id", "state"],
-                    )
-                except httpx.HTTPStatusError as exc:
-                    if exc.response.status_code == 404:
-                        logger.info(
-                            "Stock module niet beschikbaar in Odoo (model stock.move ontbreekt). "
-                            "Stap 'reset deliveries to draft' wordt overgeslagen."
-                        )
-                        return reset_count
-                    raise
+    #         for picking in pickings:
+    #             picking_id = picking["id"]
+    #             try:
+    #                 moves = self._json2_search_read(
+    #                     "stock.move",
+    #                     [["picking_id", "=", picking_id], ["state", "!=", "draft"]],
+    #                     ["id", "state"],
+    #                 )
+    #             except httpx.HTTPStatusError as exc:
+    #                 if exc.response.status_code == 404:
+    #                     logger.info(
+    #                         "Stock module niet beschikbaar in Odoo (model stock.move ontbreekt). "
+    #                         "Stap 'reset deliveries to draft' wordt overgeslagen."
+    #                     )
+    #                     return reset_count
+    #                 raise
 
-                if not moves:
-                    continue
+    #             if not moves:
+    #                 continue
 
-                # First unreserve existing quants where possible.
-                for move in moves:
-                    move_id = move["id"]
-                    for method_name in ("_do_unreserve", "do_unreserve", "action_unreserve"):
-                        try:
-                            self._json2_call_method("stock.move", method_name, ids=[move_id])
-                            break
-                        except httpx.HTTPStatusError as exc:
-                            if exc.response.status_code == 404:
-                                continue
-                            # If the method exists but fails because the move is not reserved,
-                            # continue to the next method or the draft reset.
-                            continue
+    #             # First unreserve existing quants where possible.
+    #             for move in moves:
+    #                 move_id = move["id"]
+    #                 for method_name in ("_do_unreserve", "do_unreserve", "action_unreserve"):
+    #                     try:
+    #                         self._json2_call_method("stock.move", method_name, ids=[move_id])
+    #                         break
+    #                     except httpx.HTTPStatusError as exc:
+    #                         if exc.response.status_code == 404:
+    #                             continue
+    #                         # If the method exists but fails because the move is not reserved,
+    #                         # continue to the next method or the draft reset.
+    #                         continue
 
-                    try:
-                        self._json2_call_method(
-                            "stock.move",
-                            "write",
-                            ids=[move_id],
-                            kwargs={"vals": {"state": "draft"}},
-                        )
-                    except Exception as exc:
-                        logger.warning(
-                            "Kon stock.move id=%s niet naar draft zetten voor picking id=%s: %s",
-                            move_id,
-                            picking_id,
-                            exc,
-                        )
-                        continue
+    #                 try:
+    #                     self._json2_call_method(
+    #                         "stock.move",
+    #                         "write",
+    #                         ids=[move_id],
+    #                         kwargs={"vals": {"state": "draft"}},
+    #                     )
+    #                 except Exception as exc:
+    #                     logger.warning(
+    #                         "Kon stock.move id=%s niet naar draft zetten voor picking id=%s: %s",
+    #                         move_id,
+    #                         picking_id,
+    #                         exc,
+    #                     )
+    #                     continue
 
-                reset_count += 1
-                logger.info(
-                    "Leverbon %s (id=%s) teruggezet naar draft na orderbevestiging.",
-                    picking.get("name", "?"),
-                    picking_id,
-                )
+    #             reset_count += 1
+    #             logger.info(
+    #                 "Leverbon %s (id=%s) teruggezet naar draft na orderbevestiging.",
+    #                 picking.get("name", "?"),
+    #                 picking_id,
+    #             )
 
-        return reset_count
+    #     return reset_count
 
-    def _create_draft_delivery_for_order(self, order_id: int, order_name: str) -> bool:
-        """
-        Maak een draft leverbon aan voor een order als er geen picking bestaat.
-        """
-        if not self._is_json2():
-            return False
+    # def _create_draft_delivery_for_order(self, order_id: int, order_name: str) -> bool:
+    #     """
+    #     Maak een draft leverbon aan voor een order als er geen picking bestaat.
+    #     """
+    #     if not self._is_json2():
+    #         return False
 
-        try:
-            order_records = self._json2_read(
-                "sale.order",
-                [order_id],
-                ["id", "name", "partner_id", "company_id", "order_line"],
-            )
-        except Exception as exc:
-            logger.warning("Kon sale.order %s niet lezen voor leverbon fallback: %s", order_id, exc)
-            return False
+    #     try:
+    #         order_records = self._json2_read(
+    #             "sale.order",
+    #             [order_id],
+    #             ["id", "name", "partner_id", "company_id", "order_line"],
+    #         )
+    #     except Exception as exc:
+    #         logger.warning("Kon sale.order %s niet lezen voor leverbon fallback: %s", order_id, exc)
+    #         return False
 
-        if not order_records:
-            return False
+    #     if not order_records:
+    #         return False
 
-        order = order_records[0]
-        partner = order.get("partner_id")
-        partner_id = partner[0] if isinstance(partner, (list, tuple)) and partner else None
-        company = order.get("company_id")
-        company_id = company[0] if isinstance(company, (list, tuple)) and company else None
-        line_ids = order.get("order_line") or []
+    #     order = order_records[0]
+    #     partner = order.get("partner_id")
+    #     partner_id = partner[0] if isinstance(partner, (list, tuple)) and partner else None
+    #     company = order.get("company_id")
+    #     company_id = company[0] if isinstance(company, (list, tuple)) and company else None
+    #     line_ids = order.get("order_line") or []
 
-        if not line_ids:
-            logger.info("Order %s heeft geen lijnen; geen leverbon aangemaakt.", order_name)
-            return False
+    #     if not line_ids:
+    #         logger.info("Order %s heeft geen lijnen; geen leverbon aangemaakt.", order_name)
+    #         return False
 
-        # Validate line_ids before retrieval
-        try:
-            line_ids = [int(lid) for lid in line_ids]
-        except (TypeError, ValueError):
-            logger.warning("Order %s heeft ongeldige line_ids; leverbon fallback afgebroken.", order_name)
-            return False
+    #     # Validate line_ids before retrieval
+    #     try:
+    #         line_ids = [int(lid) for lid in line_ids]
+    #     except (TypeError, ValueError):
+    #         logger.warning("Order %s heeft ongeldige line_ids; leverbon fallback afgebroken.", order_name)
+    #         return False
 
-        try:
-            picking_types = self._json2_search_read(
-                "stock.picking.type",
-                [["code", "=", "outgoing"], ["company_id", "=", company_id]],
-                ["id", "default_location_src_id", "default_location_dest_id"],
-                limit=1,
-                suppress_not_found=True,
-            )
-            if not picking_types:
-                picking_types = self._json2_search_read(
-                    "stock.picking.type",
-                    [["code", "=", "outgoing"]],
-                    ["id", "default_location_src_id", "default_location_dest_id"],
-                    limit=1,
-                    suppress_not_found=True,
-                )
-        except Exception as exc:
-            logger.warning("Kon stock.picking.type niet ophalen voor order %s: %s", order_name, exc)
-            return False
+    #     try:
+    #         picking_types = self._json2_search_read(
+    #             "stock.picking.type",
+    #             [["code", "=", "outgoing"], ["company_id", "=", company_id]],
+    #             ["id", "default_location_src_id", "default_location_dest_id"],
+    #             limit=1,
+    #             suppress_not_found=True,
+    #         )
+    #         if not picking_types:
+    #             picking_types = self._json2_search_read(
+    #                 "stock.picking.type",
+    #                 [["code", "=", "outgoing"]],
+    #                 ["id", "default_location_src_id", "default_location_dest_id"],
+    #                 limit=1,
+    #                 suppress_not_found=True,
+    #             )
+    #     except Exception as exc:
+    #         logger.warning("Kon stock.picking.type niet ophalen voor order %s: %s", order_name, exc)
+    #         return False
 
-        if not picking_types:
-            logger.warning("Geen outgoing picking type gevonden; leverbon fallback overgeslagen voor %s.", order_name)
-            return False
+    #     if not picking_types:
+    #         logger.warning("Geen outgoing picking type gevonden; leverbon fallback overgeslagen voor %s.", order_name)
+    #         return False
 
-        picking_type = picking_types[0]
-        location_src = picking_type.get("default_location_src_id")
-        location_dest = picking_type.get("default_location_dest_id")
-        location_id = location_src[0] if isinstance(location_src, (list, tuple)) and location_src else None
-        location_dest_id = location_dest[0] if isinstance(location_dest, (list, tuple)) and location_dest else None
-        if not location_id or not location_dest_id:
-            logger.warning("Picking type mist default locations; leverbon fallback overgeslagen voor %s.", order_name)
-            return False
+    #     picking_type = picking_types[0]
+    #     location_src = picking_type.get("default_location_src_id")
+    #     location_dest = picking_type.get("default_location_dest_id")
+    #     location_id = location_src[0] if isinstance(location_src, (list, tuple)) and location_src else None
+    #     location_dest_id = location_dest[0] if isinstance(location_dest, (list, tuple)) and location_dest else None
+    #     if not location_id or not location_dest_id:
+    #         logger.warning("Picking type mist default locations; leverbon fallback overgeslagen voor %s.", order_name)
+    #         return False
 
-        picking_vals: dict[str, Any] = {
-            "origin": order_name,
-            "picking_type_id": picking_type["id"],
-            "location_id": location_id,
-            "location_dest_id": location_dest_id,
-        }
-        if partner_id:
-            picking_vals["partner_id"] = partner_id
-        if company_id:
-            picking_vals["company_id"] = company_id
+    #     picking_vals: dict[str, Any] = {
+    #         "origin": order_name,
+    #         "picking_type_id": picking_type["id"],
+    #         "location_id": location_id,
+    #         "location_dest_id": location_dest_id,
+    #     }
+    #     if partner_id:
+    #         picking_vals["partner_id"] = partner_id
+    #     if company_id:
+    #         picking_vals["company_id"] = company_id
 
-        try:
-            picking_id = self._json2_create("stock.picking", picking_vals)
-        except Exception as exc:
-            logger.warning("Kon draft leverbon niet aanmaken voor order %s: %s", order_name, exc)
-            return False
+    #     try:
+    #         picking_id = self._json2_create("stock.picking", picking_vals)
+    #     except Exception as exc:
+    #         logger.warning("Kon draft leverbon niet aanmaken voor order %s: %s", order_name, exc)
+    #         return False
 
-        # Resilient line retrieval with context logging and fallback strategy
-        logger.debug(
-            "Order %s (id=%s): leverbon fallback – proberen %d sale.order.line records op te halen",
-            order_name,
-            order_id,
-            len(line_ids),
-        )
-        order_lines = self._get_order_lines_with_fallback(
-            order_name,
-            line_ids,
-        )
-        if not order_lines:
-            return False
+    #     # Resilient line retrieval with context logging and fallback strategy
+    #     logger.debug(
+    #         "Order %s (id=%s): leverbon fallback – proberen %d sale.order.line records op te halen",
+    #         order_name,
+    #         order_id,
+    #         len(line_ids),
+    #     )
+    #     order_lines = self._get_order_lines_with_fallback(
+    #         order_name,
+    #         line_ids,
+    #     )
+    #     if not order_lines:
+    #         return False
 
-        created_moves = 0
-        for line in order_lines:
-            product = line.get("product_id")
-            product_id = product[0] if isinstance(product, (list, tuple)) and product else None
-            if not product_id:
-                continue
+    #     created_moves = 0
+    #     for line in order_lines:
+    #         product = line.get("product_id")
+    #         product_id = product[0] if isinstance(product, (list, tuple)) and product else None
+    #         if not product_id:
+    #             continue
 
-            qty = float(line.get("product_uom_qty") or 0.0)
-            if qty <= 0:
-                continue
+    #         qty = float(line.get("product_uom_qty") or 0.0)
+    #         if qty <= 0:
+    #             continue
 
-            uom = line.get("product_uom_id")
-            product_uom = uom[0] if isinstance(uom, (list, tuple)) and uom else None
-            if not product_uom:
-                continue
+    #         uom = line.get("product_uom_id")
+    #         product_uom = uom[0] if isinstance(uom, (list, tuple)) and uom else None
+    #         if not product_uom:
+    #             continue
 
-            move_vals: dict[str, Any] = {
-                "product_id": product_id,
-                "product_uom_id": product_uom,
-                "product_uom_qty": qty,
-                "picking_id": picking_id,
-                "location_id": location_id,
-                "location_dest_id": location_dest_id,
-                "state": "draft",
-            }
-            if company_id:
-                move_vals["company_id"] = company_id
+    #         move_vals: dict[str, Any] = {
+    #             "product_id": product_id,
+    #             "product_uom_id": product_uom,
+    #             "product_uom_qty": qty,
+    #             "picking_id": picking_id,
+    #             "location_id": location_id,
+    #             "location_dest_id": location_dest_id,
+    #             "state": "draft",
+    #         }
+    #         if company_id:
+    #             move_vals["company_id"] = company_id
 
-            try:
-                self._json2_create("stock.move", move_vals)
-                created_moves += 1
-            except Exception as exc:
-                logger.warning(
-                    "Kon stock.move niet aanmaken voor picking id=%s line id=%s: %s",
-                    picking_id,
-                    line.get("id"),
-                    exc,
-                )
+    #         try:
+    #             self._json2_create("stock.move", move_vals)
+    #             created_moves += 1
+    #         except Exception as exc:
+    #             logger.warning(
+    #                 "Kon stock.move niet aanmaken voor picking id=%s line id=%s: %s",
+    #                 picking_id,
+    #                 line.get("id"),
+    #                 exc,
+    #             )
 
-        if created_moves == 0:
-            logger.warning("Draft leverbon aangemaakt maar zonder moves voor order %s.", order_name)
-        else:
-            logger.info(
-                "Draft leverbon id=%s aangemaakt voor order %s met %s move(s).",
-                picking_id,
-                order_name,
-                created_moves,
-            )
-        return True
+    #     if created_moves == 0:
+    #         logger.warning("Draft leverbon aangemaakt maar zonder moves voor order %s.", order_name)
+    #     else:
+    #         logger.info(
+    #             "Draft leverbon id=%s aangemaakt voor order %s met %s move(s).",
+    #             picking_id,
+    #             order_name,
+    #             created_moves,
+    #         )
+    #     return True
 
     
     def set_delivery_pickings_to_waiting(self, order_id: int) -> None:
@@ -1387,59 +1387,59 @@ class OdooController:
 
 
 
-    def _get_order_lines_with_fallback(self, order_name: str, line_ids: list[int]) -> list[dict]:
-        """
-        Robuuste ophalen van orderregels-records met een fallbackstrategie.
-        """
-        fields = ["id", "name", "product_id", "product_uom_id", "product_uom_qty"]
+    # def _get_order_lines_with_fallback(self, order_name: str, line_ids: list[int]) -> list[dict]:
+    #     """
+    #     Robuuste ophalen van orderregels-records met een fallbackstrategie.
+    #     """
+    #     fields = ["id", "name", "product_id", "product_uom_id", "product_uom_qty"]
         
-        # Attempt 1: Direct read(ids) – faster, but may fail if Odoo model has issues
-        try:
-            logger.debug("Order %s: poging 1 – sale.order.line/read met %d ids", order_name, len(line_ids))
-            order_lines = self._json2_read("sale.order.line", line_ids, fields)
-            logger.debug("Order %s: poging 1 geslaagd – %d lijnen opgehaald", order_name, len(order_lines))
-            return order_lines
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 500:
-                logger.debug(
-                    "Order %s: poging 1 server error 500 – fallback naar search_read",
-                    order_name,
-                )
-            else:
-                logger.warning(
-                    "Order %s: poging 1 HTTP error %s – fallback naar search_read",
-                    order_name,
-                    exc.response.status_code,
-                )
-        except Exception as exc:
-            logger.warning(
-                "Order %s: poging 1 onverwachte fout – fallback naar search_read: %s",
-                order_name,
-                exc,
-            )
+    #     # Attempt 1: Direct read(ids) – faster, but may fail if Odoo model has issues
+    #     try:
+    #         logger.debug("Order %s: poging 1 – sale.order.line/read met %d ids", order_name, len(line_ids))
+    #         order_lines = self._json2_read("sale.order.line", line_ids, fields)
+    #         logger.debug("Order %s: poging 1 geslaagd – %d lijnen opgehaald", order_name, len(order_lines))
+    #         return order_lines
+    #     except httpx.HTTPStatusError as exc:
+    #         if exc.response.status_code == 500:
+    #             logger.debug(
+    #                 "Order %s: poging 1 server error 500 – fallback naar search_read",
+    #                 order_name,
+    #             )
+    #         else:
+    #             logger.warning(
+    #                 "Order %s: poging 1 HTTP error %s – fallback naar search_read",
+    #                 order_name,
+    #                 exc.response.status_code,
+    #             )
+    #     except Exception as exc:
+    #         logger.warning(
+    #             "Order %s: poging 1 onverwachte fout – fallback naar search_read: %s",
+    #             order_name,
+    #             exc,
+    #         )
         
-        # Attempt 2: Fallback via search_read with id in domain
-        try:
-            logger.debug(
-                "Order %s: poging 2 – sale.order.line/search_read met id in (%d)",
-                order_name,
-                len(line_ids),
-            )
-            order_lines = self._json2_search_read(
-                "sale.order.line",
-                [["id", "in", line_ids]],
-                fields,
-            )
-            logger.debug("Order %s: poging 2 geslaagd – %d lijnen opgehaald", order_name, len(order_lines))
-            return order_lines
-        except Exception as exc:
-            logger.warning(
-                "Order %s: beide line-retrieval pogingen mislukt (read + search_read). "
-                "Fallback leverbon creatie afgebroken: %s",
-                order_name,
-                exc,
-            )
-            return []
+    #     # Attempt 2: Fallback via search_read with id in domain
+    #     try:
+    #         logger.debug(
+    #             "Order %s: poging 2 – sale.order.line/search_read met id in (%d)",
+    #             order_name,
+    #             len(line_ids),
+    #         )
+    #         order_lines = self._json2_search_read(
+    #             "sale.order.line",
+    #             [["id", "in", line_ids]],
+    #             fields,
+    #         )
+    #         logger.debug("Order %s: poging 2 geslaagd – %d lijnen opgehaald", order_name, len(order_lines))
+    #         return order_lines
+    #     except Exception as exc:
+    #         logger.warning(
+    #             "Order %s: beide line-retrieval pogingen mislukt (read + search_read). "
+    #             "Fallback leverbon creatie afgebroken: %s",
+    #             order_name,
+    #             exc,
+    #         )
+    #         return []
 
     # ORDER SYNC: ORDER STATUS CHANGES (NIET ACTIEF IN GEBRUIK)
     def lock_order(self, order_id: int) -> None:
