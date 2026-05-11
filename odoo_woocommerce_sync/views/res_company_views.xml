@@ -42,7 +42,6 @@
                         <field name="woo_product_cron_status" readonly="True"/>
                         <field name="woo_product_cron_nextcall" readonly="True"/>
                         <field name="woo_auto_confirm_paid_orders"/>
-                        <field name="woo_create_delivery_picking"/>
                         <field name="woo_track_stock"/>
                         <field name="woo_create_delivery_addresses"/>
                     </group>

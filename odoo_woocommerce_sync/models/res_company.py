@@ -224,12 +224,6 @@ class ResCompany(models.Model):
         default=False,
         help="Automatisch aanmaken van leveringsadressen"
     )
-
-    woo_create_delivery_picking = fields.Boolean(
-    string="Delivery Picking Flow",
-    default=False,
-    help="Na bevestiging van een betaalde order: maak automatisch een leverbon aan."
-    )
     
     woo_track_stock = fields.Boolean(
         string="Track Internal Stock",
