@@ -27,10 +27,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-try:
-    import schedule
-except ModuleNotFoundError:
-    schedule = None
+
 
 # Import local config first (has settings instance loaded from WooCommerce/.env)
 from config import settings
@@ -87,6 +84,33 @@ def log_error_to_file(exc: Exception) -> None:
     logger.error("Fout weggeschreven naar: %s", LOG_FILE)
 
 
+def load_company_configs(odoo: OdooController) -> list:
+    """
+    Load WooCommerce sync configurations for all active Odoo companies.
+    
+    Returns list of CompanyWooSyncConfig objects.
+    """
+    try:
+        if odoo.uid is None:
+            odoo.authenticate()
+        
+        company_responses = odoo.get_all_active_companies()
+        configs = [resp.to_config() for resp in company_responses]
+        
+        logger.info("Geladen %s bedrijfsconfiguratie(s) uit Odoo", len(configs))
+        for config in configs:
+            logger.info(
+                "  - %s (woo_sync=%s)",
+                config.company_name,
+                "enabled" if config.woo_sync_enabled else "disabled",
+            )
+        
+        return configs
+    except Exception as exc:
+        logger.error("Error loading company configs: %s", exc)
+        return []
+
+
 def emit_sync_event(event: str, **payload) -> None:
     """Emit machine-readable sync events to stdout log stream for Odoo ingestion."""
     event_payload = {
@@ -100,223 +124,7 @@ def emit_sync_event(event: str, **payload) -> None:
     logger.error("%s%s", SYNC_EVENT_MARKER, json.dumps(event_payload, ensure_ascii=True))
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# MULTI-COMPANY SCHEDULER
-# ════════════════════════════════════════════════════════════════════════════
 
-def load_company_configs(odoo: OdooController) -> list:
-    """
-    Load WooCommerce sync configurations for all active Odoo companies.
-    
-    Returns list of CompanyWooSyncConfig objects.
-    """
-    from shared.models import CompanyWooSyncConfig
-    
-    try:
-        if odoo.uid is None:
-            odoo.authenticate()
-        
-        company_responses = odoo.get_all_active_companies()
-        configs = [resp.to_config() for resp in company_responses]
-        
-        logger.info("Geladen %s bedrijfsconfiguratie(s) uit Odoo", len(configs))
-        for config in configs:
-            logger.info(
-                "  - %s (mode=%s, order=%s min, product=%s min)",
-                config.company_name,
-                config.woo_sync_interval_mode.value,
-                config.sync_interval_minutes or "N/A",
-                config.product_sync_interval_minutes or "N/A",
-            )
-        
-        return configs
-    except Exception as exc:
-        logger.error("Error loading company configs: %s", exc)
-        return []
-
-
-# def run_scheduler_multi_company(after: str | None = None) -> None:
-#     """
-#     Multi-company scheduler supporting per-company cron intervals and settings.
-    
-#     Each company can have:
-#     - Different intervals (15 min, 30 min, hourly, etc.)
-#     - Disabled sync (manual-only mode)
-#     - Different WooCommerce credentials (if specified)
-#     - Stock tracking enabled/disabled per company
-#     """
-    
-#     logger.info("╔════════════════════════════════════════════════════════╗")
-#     logger.info("║ Multi-Company WooCommerce ↔ Odoo Scheduler             ║")
-#     logger.info("╚════════════════════════════════════════════════════════╝")
-    
-#     # Load company configurations from Odoo
-#     odoo = OdooController()
-#     odoo.authenticate()
-#     company_configs = load_company_configs(odoo)
-    
-#     if not company_configs:
-#         logger.warning("Geen bedrijfsconfiguraties gevonden – uitgang.")
-#         return
-    
-#     # Validate and filter for sync-enabled companies.
-#     # Also require complete Woo credentials; otherwise skip the company.
-#     active_configs: list[CompanyWooSyncConfig] = []
-#     for cfg in company_configs:
-#         if not cfg.woo_wordpress_plugin_enabled:
-#             logger.info(
-#                 "Bedrijf '%s' overgeslagen: Wordpress Plugin staat uit.",
-#                 cfg.company_name,
-#             )
-#             continue
-#         if not cfg.woo_sync_enabled:
-#             continue
-#         if not _has_required_woo_credentials(cfg):
-#             logger.warning(
-#                 "Bedrijf '%s' overgeslagen: ontbrekende Woo credentials (url/key/secret).",
-#                 cfg.company_name,
-#             )
-#             continue
-#         if cfg.sync_interval_minutes is None and cfg.product_sync_interval_minutes is None:
-#             continue
-#         active_configs.append(cfg)
-    
-#     if not active_configs:
-#         logger.warning("Geen bedrijven met ingeschakelde auto-sync – uitgang.")
-#         logger.info("(Voer manueel uit met: python main.py --orders --once)")
-#         return
-    
-#     logger.info("")
-#     logger.info("Starten met %d actief(e) bedrijf(ven)...", len(active_configs))
-    
-#     _stop = [False]
-    
-#     def create_order_job(company_config):
-#         """Factory function for an order sync job for a specific company."""
-#         def company_job():
-#             logger.info(
-#                 "── Order sync gestart voor bedrijf '%s' (interval=%s min)",
-#                 company_config.company_name,
-#                 company_config.sync_interval_minutes,
-#             )
-#             try:
-#                 run_order_sync(after=after, company_config=company_config)
-#             except Exception as exc:
-#                 logger.exception(
-#                     "Fout in order sync voor bedrijf '%s'",
-#                     company_config.company_name,
-#                 )
-#                 log_error_to_file(exc)
-#                 _stop[0] = True
-
-#         return company_job
-
-#     def create_product_job(company_config):
-#         """Factory function for a product sync job for a specific company."""
-#         def company_job():
-#             logger.info(
-#                 "── Product sync gestart voor bedrijf '%s' (interval=%s min)",
-#                 company_config.company_name,
-#                 company_config.product_sync_interval_minutes,
-#             )
-#             try:
-#                 run_product_sync(company_id=company_config.company_id)
-#             except Exception as exc:
-#                 logger.exception(
-#                     "Fout in product sync voor bedrijf '%s'",
-#                     company_config.company_name,
-#                 )
-#                 log_error_to_file(exc)
-#                 _stop[0] = True
-
-#         return company_job
-
-#     def create_combined_job(company_config):
-#         """Factory function for a shared order/product sync job."""
-#         def company_job():
-#             logger.info(
-#                 "── Gedeelde sync gestart voor bedrijf '%s' (interval=%s min)",
-#                 company_config.company_name,
-#                 company_config.sync_interval_minutes,
-#             )
-#             try:
-#                 run_order_sync(after=after, company_config=company_config)
-#                 run_product_sync(company_id=company_config.company_id)
-#             except Exception as exc:
-#                 logger.exception(
-#                     "Fout in gedeelde sync voor bedrijf '%s'",
-#                     company_config.company_name,
-#                 )
-#                 log_error_to_file(exc)
-#                 _stop[0] = True
-
-#         return company_job
-    
-#     if schedule is not None:
-#         # Schedule jobs for each company with their configured interval setup
-#         for config in active_configs:
-#             if config.is_separate_sync_intervals:
-#                 order_interval = config.sync_interval_minutes
-#                 if order_interval and order_interval > 0:
-#                     schedule.every(order_interval).minutes.do(create_order_job(config))
-#                     logger.info(
-#                         "Ingepland: %s – orders elke %d minuten",
-#                         config.company_name,
-#                         order_interval,
-#                     )
-
-#                 product_interval = config.product_sync_interval_minutes
-#                 if product_interval and product_interval > 0:
-#                     schedule.every(product_interval).minutes.do(create_product_job(config))
-#                     logger.info(
-#                         "Ingepland: %s – producten elke %d minuten",
-#                         config.company_name,
-#                         product_interval,
-#                     )
-#             else:
-#                 interval = config.sync_interval_minutes
-#                 if interval and interval > 0:
-#                     schedule.every(interval).minutes.do(create_combined_job(config))
-#                     logger.info(
-#                         "Ingepland: %s – gedeelde sync elke %d minuten",
-#                         config.company_name,
-#                         interval,
-#                     )
-        
-#         logger.info("")
-#         logger.info("Alle jobs ingepland. Wacht op volgende sync...\n")
-        
-#         # Run initial sync for all companies using the same mode as the scheduler.
-#         logger.info("First run – syncing all companies...")
-#         for config in active_configs:
-#             logger.info("Initial sync: %s", config.company_name)
-#             try:
-#                 if config.is_separate_sync_intervals:
-#                     if config.sync_interval_minutes and config.sync_interval_minutes > 0:
-#                         run_order_sync(after=after, company_config=config)
-#                     if config.product_sync_interval_minutes and config.product_sync_interval_minutes > 0:
-#                         run_product_sync(company_id=config.company_id)
-#                 else:
-#                     if config.sync_interval_minutes and config.sync_interval_minutes > 0:
-#                         run_order_sync(after=after, company_config=config)
-#                         run_product_sync(company_id=config.company_id)
-#             except Exception as exc:
-#                 logger.exception("Error in initial sync for %s", config.company_name)
-#                 log_error_to_file(exc)
-#                 _stop[0] = True
-        
-#         # Main scheduler loop
-#         while not _stop[0]:
-#             try:
-#                 schedule.run_pending()
-#                 time.sleep(1)
-#             except KeyboardInterrupt:
-#                 logger.info("")
-#                 logger.info("Scheduler gestopt door gebruiker.")
-#                 break
-#     else:
-#         logger.error("schedule module niet geïnstalleerd. Kan scheduler niet starten.")
-#         logger.info("Voer eenmalig uit met: python main.py --orders --once")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1626,8 +1434,4 @@ Examples:
 
     # ── ORDER SYNC MODE ───────────────────────────────────────────────────────
     elif args.orders:
-        if args.dry_run or args.once:
-            run_order_sync(dry_run=args.dry_run, after=args.after)
-        else:
-            # Multi-company scheduler (Phase 5)
-            run_scheduler_multi_company(after=args.after)
+        run_order_sync(dry_run=args.dry_run, after=args.after)
