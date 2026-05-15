@@ -923,6 +923,7 @@ class OdooController:
             self._call_kw("sale.order", "action_confirm", [[order_id]])
         logger.info("Order id=%s bevestigd.", order_id)
 
+
     
     def set_delivery_pickings_to_waiting(self, order_id: int) -> None:
         """Zet automatisch aangemaakte leverbonnen op Waiting door voorraad vrij te geven."""
