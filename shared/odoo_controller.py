@@ -923,10 +923,6 @@ class OdooController:
             self._call_kw("sale.order", "action_confirm", [[order_id]])
         logger.info("Order id=%s bevestigd.", order_id)
 
-        
-
-
-
     
     def set_delivery_pickings_to_waiting(self, order_id: int) -> None:
         """Zet automatisch aangemaakte leverbonnen op Waiting door voorraad vrij te geven."""
@@ -982,61 +978,6 @@ class OdooController:
 
         logger.debug("set_delivery_pickings_to_waiting finished: order_id=%s", order_id)
 
-
-
-    # def _get_order_lines_with_fallback(self, order_name: str, line_ids: list[int]) -> list[dict]:
-    #     """
-    #     Robuuste ophalen van orderregels-records met een fallbackstrategie.
-    #     """
-    #     fields = ["id", "name", "product_id", "product_uom_id", "product_uom_qty"]
-        
-    #     # Attempt 1: Direct read(ids) – faster, but may fail if Odoo model has issues
-    #     try:
-    #         logger.debug("Order %s: poging 1 – sale.order.line/read met %d ids", order_name, len(line_ids))
-    #         order_lines = self._json2_read("sale.order.line", line_ids, fields)
-    #         logger.debug("Order %s: poging 1 geslaagd – %d lijnen opgehaald", order_name, len(order_lines))
-    #         return order_lines
-    #     except httpx.HTTPStatusError as exc:
-    #         if exc.response.status_code == 500:
-    #             logger.debug(
-    #                 "Order %s: poging 1 server error 500 – fallback naar search_read",
-    #                 order_name,
-    #             )
-    #         else:
-    #             logger.warning(
-    #                 "Order %s: poging 1 HTTP error %s – fallback naar search_read",
-    #                 order_name,
-    #                 exc.response.status_code,
-    #             )
-    #     except Exception as exc:
-    #         logger.warning(
-    #             "Order %s: poging 1 onverwachte fout – fallback naar search_read: %s",
-    #             order_name,
-    #             exc,
-    #         )
-        
-    #     # Attempt 2: Fallback via search_read with id in domain
-    #     try:
-    #         logger.debug(
-    #             "Order %s: poging 2 – sale.order.line/search_read met id in (%d)",
-    #             order_name,
-    #             len(line_ids),
-    #         )
-    #         order_lines = self._json2_search_read(
-    #             "sale.order.line",
-    #             [["id", "in", line_ids]],
-    #             fields,
-    #         )
-    #         logger.debug("Order %s: poging 2 geslaagd – %d lijnen opgehaald", order_name, len(order_lines))
-    #         return order_lines
-    #     except Exception as exc:
-    #         logger.warning(
-    #             "Order %s: beide line-retrieval pogingen mislukt (read + search_read). "
-    #             "Fallback leverbon creatie afgebroken: %s",
-    #             order_name,
-    #             exc,
-    #         )
-    #         return []
 
     # ORDER SYNC: ORDER STATUS CHANGES (NIET ACTIEF IN GEBRUIK)
     def lock_order(self, order_id: int) -> None:
