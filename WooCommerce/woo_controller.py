@@ -18,7 +18,6 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from config import settings
 from shared.models import WooOrder, WooProductStock
-from shared.odoo_controller import OdooController
 
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.WARNING)
